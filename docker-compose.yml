@@ -1,0 +1,52 @@
+version: '3.8'
+services:
+  ml-api:
+    build:
+      context: ./ML
+      dockerfile: Dockerfile
+    ports:
+      - "${ML_PORT}:${ML_PORT}" 
+    environment:
+      - PYTHONUNBUFFERED=1
+    env_file:
+      - .env
+    networks:
+      - sambal_net
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${PORT_SERVER}:${PORT_SERVER}"
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - ml-api
+    networks:
+      - sambal_net
+
+  db: 
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: ${USERNAME_DB}
+      POSTGRES_PASSWORD: ${PASSWORD_DB}
+      POSTGRES_DB: ${DATABASE_NAME}
+    ports:
+      - "${PORT_DB}:${PORT_DB}"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    env_file:
+      - .env
+    networks:
+      - sambal_net
+    restart: unless-stopped
+
+networks:
+  sambal_net:
+    driver: bridge
+
+volumes:
+  db_data:

@@ -1,0 +1,13 @@
+sambal_bawang
+sambal_beberuk
+sambal_belimbing
+sambal_ijo
+sambal_jengkol
+sambal_kecap
+sambal_matah
+sambal_pecel
+sambal_pencit
+sambal_petis
+sambal_saus
+sambal_tempoyak
+sambal_terasi
