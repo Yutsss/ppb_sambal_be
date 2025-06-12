@@ -13,18 +13,45 @@ import FormData from 'form-data';
 export class PredictService {
   static async predict(req: PredictRequest): Promise<PredictResponse> {
     const url = process.env.ML_URL as string;
-    if (!url) {
+    const roboflowUrl = process.env.ROBOFLOW_URL as string;
+    const roboflowApiKey = process.env.ROBOFLOW_API_KEY as string;
+
+    if (!url || !roboflowUrl || !roboflowApiKey) {
       throw new ResponseError(StatusCodes.INTERNAL_SERVER_ERROR, "Internal Server Error");
     }
 
+    // Health check to local ML service
     const mlHealthCheck = await axios.get(`${url}/health`);
-
     if (mlHealthCheck.status !== StatusCodes.OK) {
       throw new ResponseError(StatusCodes.INTERNAL_SERVER_ERROR, "Internal Server Error");
     }
 
     const filePath = req.filePath as string;
 
+    // ===== Roboflow Prediction =====
+    const base64Image = fs.readFileSync(filePath, { encoding: 'base64' });
+
+    const roboflowResponse: any = await axios.post(`${roboflowUrl}`, base64Image, {
+      params: {
+        api_key: roboflowApiKey
+      },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }
+    });
+
+    if (roboflowResponse.status !== StatusCodes.OK) {
+      throw new ResponseError(StatusCodes.INTERNAL_SERVER_ERROR, "Internal Server Error");
+    }
+
+    const roboflowPred: any = roboflowResponse.data.predictions;
+
+    if (roboflowPred.length === 0 || roboflowPred.confidence < 0.5) {
+      fs.unlinkSync(filePath);
+      throw new ResponseError(StatusCodes.BAD_REQUEST, "This image does not contain any sambal");
+    }
+
+    // Local ML Prediction
     const formData = new FormData();
     formData.append('file', fs.createReadStream(filePath));
 
@@ -35,7 +62,6 @@ export class PredictService {
     });
 
     if (response.status !== StatusCodes.OK) {
-      console.log(response);
       throw new ResponseError(StatusCodes.INTERNAL_SERVER_ERROR, "Internal Server Error");
     }
 
@@ -53,7 +79,7 @@ export class PredictService {
       const sambalName = item.class.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
       item.name = sambalName;
     }
-      
+
     const res: PredictResponse = {
       predictions: data.predictions,
     };
